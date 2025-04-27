@@ -22,7 +22,7 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS bookings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id INTEGER,
-    guest_name TEXT,
+    guest_id  INTEGER,
     check_in TEXT,
     check_out TEXT,
     notes TEXT
@@ -69,10 +69,10 @@ app.get('/bookings', (req, res) => {
 
 // 新增预订
 app.post('/bookings', (req, res) => {
-  const { room_id, guest_name, check_in, check_out, notes } = req.body
+  const { room_id, guest_id , check_in, check_out, notes } = req.body
   db.run(
-    'INSERT INTO bookings (room_id, guest_name, check_in, check_out, notes) VALUES (?, ?, ?, ?, ?)',
-    [room_id, guest_name, check_in, check_out, notes],
+    'INSERT INTO bookings (room_id, guest_id, check_in, check_out, notes) VALUES (?, ?, ?, ?, ?)',
+    [room_id, guest_id , check_in, check_out, notes],
     function (err) {
       if (err) return res.status(500).json({ error: err.message })
       res.json({ id: this.lastID })
@@ -86,7 +86,7 @@ app.post('/bookings', (req, res) => {
 app.delete('/bookings/:id', (req, res) => {
   const { id } = req.params
   db.run(
-    'DELETE FROM guests WHERE id = ?',
+    'DELETE FROM bookings WHERE id = ?',
     [id],
     function (err) {
       if (err) return res.status(500).json({ error: err.message })
@@ -99,14 +99,14 @@ app.delete('/bookings/:id', (req, res) => {
 
 
 
-// edit
+// edit booking
 app.put('/bookings/:id', (req, res) => {
     const { id } = req.params;
-    const { guest_name, notes, check_in, check_out } = req.body;
+    const { guest_id, notes, check_in, check_out } = req.body;
   
     db.run(
       `UPDATE bookings SET guest_name=?, notes=?, check_in=?, check_out=? WHERE id=?`,
-      [guest_name, notes, check_in, check_out, id],
+      [room_id, guest_id , check_in, check_out, notes],
       function (err) {
         if (err) {
           return res.status(500).send({ error: 'Database error' });
