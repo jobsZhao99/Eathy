@@ -1,23 +1,3 @@
-<!-- <template>
-  <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">🏠 房态管理系统</h1>
-    <AddRoomForm @roomAdded="refreshPage" />
-    <BookingForm @submitted="refreshPage" />
-    <RoomCalendar />
-  </div>
-</template>
-
-<script setup>
-import BookingForm from './components/BookingForm.vue'
-import RoomCalendar from './components/RoomCalendar.vue'
-import AddRoomForm from './components/AddRoomForm.vue'
-
-const refreshPage = () => {
-  window.location.reload()
-}
-</script> -->
-
-
 <template>
   <v-app>
     <!-- 顶部导航 -->
@@ -36,7 +16,7 @@ const refreshPage = () => {
       <v-list>
         <v-list-item-title class="text-h6 text-center mt-4 mb-2">菜单</v-list-item-title>
         <v-divider></v-divider>
-        <v-list-item link>
+        <v-list-item to="/calendar" link>
           <v-list-item-icon>
             <v-icon>mdi-calendar-month</v-icon>
           </v-list-item-icon>
@@ -45,7 +25,7 @@ const refreshPage = () => {
           </v-list-item-content>
         </v-list-item>
 
-        <v-list-item link>
+        <v-list-item to="/rooms" link>
           <v-list-item-icon>
             <v-icon>mdi-bed</v-icon>
           </v-list-item-icon>
@@ -54,7 +34,7 @@ const refreshPage = () => {
           </v-list-item-content>
         </v-list-item>
 
-        <v-list-item link>
+        <v-list-item to="/guests" link>
           <v-list-item-icon>
             <v-icon>mdi-account-multiple</v-icon>
           </v-list-item-icon>

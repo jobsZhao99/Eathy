@@ -27,6 +27,15 @@ db.serialize(() => {
     check_out TEXT,
     notes TEXT
   )`)
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS guests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT,
+      notes TEXT
+    )
+  `)
 })
 
 // 获取所有房间
@@ -71,13 +80,26 @@ app.post('/bookings', (req, res) => {
   )
 })
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
+
+
+// 删除预订
+app.delete('/bookings/:id', (req, res) => {
+  const { id } = req.params
+  db.run(
+    'DELETE FROM guests WHERE id = ?',
+    [id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ success: true })
+    }
+  )
 })
 
 
 
-// Express.js 写法示例
+
+
+// edit
 app.put('/bookings/:id', (req, res) => {
     const { id } = req.params;
     const { guest_name, notes, check_in, check_out } = req.body;
@@ -94,3 +116,58 @@ app.put('/bookings/:id', (req, res) => {
     );
   });
   
+
+
+  // 获取所有租客
+app.get('/guests', (req, res) => {
+  db.all('SELECT * FROM guests', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message })
+    res.json(rows)
+  })
+})
+
+// 新增租客
+app.post('/guests', (req, res) => {
+  const { name, phone, notes } = req.body
+  db.run(
+    'INSERT INTO guests (name, phone, notes) VALUES (?, ?, ?)',
+    [name, phone, notes],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ id: this.lastID })
+    }
+  )
+})
+
+// 编辑租客
+app.put('/guests/:id', (req, res) => {
+  const { id } = req.params
+  const { name, phone, notes } = req.body
+  db.run(
+    'UPDATE guests SET name = ?, phone = ?, notes = ? WHERE id = ?',
+    [name, phone, notes, id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ success: true })
+    }
+  )
+})
+
+// 删除租客
+app.delete('/guests/:id', (req, res) => {
+  const { id } = req.params
+  db.run(
+    'DELETE FROM guests WHERE id = ?',
+    [id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ success: true })
+    }
+  )
+})
+
+
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`)
+})
