@@ -113,6 +113,32 @@
           />
         </v-menu>
 
+        <!-- Confirmed Date -->
+        <v-menu v-model="confirmedDateMenu" :close-on-content-click="false" offset-y>
+          <template #activator="{ on, attrs }">
+            <v-text-field
+              v-model="editForm.confirmed_date"
+              label="Confirmed Date"
+              readonly
+              v-bind="attrs"
+              v-on="on"
+              outlined dense
+            />
+          </template>
+          <v-date-picker v-model="editForm.confirmed_date" @update:model-value="confirmedDateMenu = false" />
+        </v-menu>
+
+
+        <!-- 其他字段 -->
+        <v-text-field v-model="editForm.confirmation_code" label="确认码" outlined dense />
+        <v-text-field v-model="editForm.night" label="夜数" type="number" outlined dense />
+        <v-text-field v-model="editForm.sum_days" label="总天数" type="number" outlined dense />
+        <v-text-field v-model="editForm.net_rate" label="净房价 ($)" type="number" outlined dense />
+        <v-text-field v-model="editForm.daily_rent" label="日租金 ($)" type="number" outlined dense />
+        <v-text-field v-model="editForm.total_rent" label="总租金 ($)" type="number" outlined dense />
+
+
+
           <v-textarea v-model="editForm.notes" label="备注" outlined dense />
         </v-card-text>
 
@@ -149,11 +175,20 @@ const editForm = reactive({
   room_id: '',
   check_in: '',
   check_out: '',
-  notes: ''
+  notes: '',
+  confirmed_date: '',
+  confirmation_code: '',
+  night: '',
+  sum_days: '',
+  net_rate: '',
+  total_rent: '',
+  daily_rent: ''
 })
+
 
 const checkInMenu = ref(false)
 const checkOutMenu = ref(false)
+const confirmedDateMenu = ref(false)
 
 onMounted(async () => {
   await loadData()
@@ -321,4 +356,27 @@ async function deleteBooking() {
 const guestOptions = guests
 // 房间选项
 const roomOptions = rooms
+
+
+import { watch } from 'vue'
+
+// 自动计算 Night 和 Sum Days
+watch([() => editForm.check_in, () => editForm.check_out], ([moveIn, moveOut]) => {
+  if (moveIn && moveOut) {
+    const inDate = new Date(moveIn)
+    const outDate = new Date(moveOut)
+    const diffMs = outDate - inDate
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    if (diffDays >= 0) {
+      editForm.night = diffDays
+      editForm.sum_days = diffDays + 1
+    } else {
+      editForm.night = 0
+      editForm.sum_days = 0
+    }
+  }
+})
+
+
+
 </script>

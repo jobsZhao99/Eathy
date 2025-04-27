@@ -16,7 +16,15 @@ db.serialize(() => {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
     address TEXT,
-    description TEXT
+    description TEXT,
+    confirmed_date TEXT,
+    confirmation_code TEXT,
+    night INTEGER,
+    sum_days INTEGER,
+    net_rate REAL,
+    total_rent REAL,
+    total_rent REAL,
+    daily_rent REAL
   )`)
 
   db.run(`CREATE TABLE IF NOT EXISTS bookings (
@@ -36,6 +44,9 @@ db.serialize(() => {
       notes TEXT
     )
   `)
+
+
+
 })
 
 // 获取所有房间
@@ -69,16 +80,33 @@ app.get('/bookings', (req, res) => {
 
 // 新增预订
 app.post('/bookings', (req, res) => {
-  const { room_id, guest_id , check_in, check_out, notes } = req.body
+  const {
+    room_id,
+    guest_id,
+    check_in,
+    check_out,
+    notes,
+    confirmed_date,
+    confirmation_code,
+    night,
+    sum_days,
+    net_rate,
+    total_rent,
+    daily_rent
+  } = req.body;
+
   db.run(
-    'INSERT INTO bookings (room_id, guest_id, check_in, check_out, notes) VALUES (?, ?, ?, ?, ?)',
-    [room_id, guest_id , check_in, check_out, notes],
+    `INSERT INTO bookings
+    (room_id, guest_id, check_in, check_out, notes, confirmed_date, confirmation_code, night, sum_days, net_rate, total_rent, daily_rent)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [room_id, guest_id, check_in, check_out, notes, confirmed_date, confirmation_code, night, sum_days, net_rate, total_rent, daily_rent],
     function (err) {
       if (err) return res.status(500).json({ error: err.message })
       res.json({ id: this.lastID })
     }
   )
 })
+
 
 
 
@@ -101,20 +129,45 @@ app.delete('/bookings/:id', (req, res) => {
 
 // edit booking
 app.put('/bookings/:id', (req, res) => {
-    const { id } = req.params;
-    const { guest_id, notes, check_in, check_out } = req.body;
-  
-    db.run(
-      `UPDATE bookings SET guest_name=?, notes=?, check_in=?, check_out=? WHERE id=?`,
-      [room_id, guest_id , check_in, check_out, notes],
-      function (err) {
-        if (err) {
-          return res.status(500).send({ error: 'Database error' });
-        }
-        res.send({ success: true });
-      }
-    );
-  });
+  const { id } = req.params
+  const {
+    room_id,
+    guest_id,
+    check_in,
+    check_out,
+    notes,
+    confirmed_date,
+    confirmation_code,
+    night,
+    sum_days,
+    net_rate,
+    total_rent,
+    daily_rent
+  } = req.body
+
+  db.run(
+    `UPDATE bookings SET
+      room_id = ?, 
+      guest_id = ?, 
+      check_in = ?, 
+      check_out = ?, 
+      notes = ?,
+      confirmed_date = ?,
+      confirmation_code = ?,
+      night = ?,
+      sum_days = ?,
+      net_rate = ?,
+      total_rent = ?,
+      daily_rent = ?
+    WHERE id = ?`,
+    [room_id, guest_id, check_in, check_out, notes, confirmed_date, confirmation_code, night, sum_days, net_rate, total_rent, daily_rent, id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message })
+      res.json({ success: true })
+    }
+  )
+})
+
   
 
 

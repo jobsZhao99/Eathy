@@ -1,11 +1,22 @@
 <template>
+
+<v-btn color="secondary" @click="$refs.fileInput.click()">📥 批量导入租客</v-btn>
+      <input
+        type="file"
+        ref="fileInput"
+        accept=".xlsx,.xls,.csv"
+        class="hidden"
+        @change="handleFileUpload"
+      />
+
     <v-container fluid>
       <v-toolbar flat>
         <v-toolbar-title>租客管理</v-toolbar-title>
         <v-spacer></v-spacer>
         <v-btn color="primary" @click="openNewGuestDialog">➕ 新增租客</v-btn>
       </v-toolbar>
-  
+
+
       <v-data-table
         density="default"
         :headers="headers"
@@ -37,6 +48,7 @@
         </v-card>
       </v-dialog>
     </v-container>
+    
   </template>
   
   <script setup>
@@ -130,5 +142,82 @@
       }
     }
   }
+
+
+  import * as XLSX from 'xlsx'
+
+async function handleFileUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+
+  const reader = new FileReader()
+
+  reader.onload = async (e) => {
+    const data = new Uint8Array(e.target.result)
+    const workbook = XLSX.read(data, { type: 'array' })
+
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+    let rows = XLSX.utils.sheet_to_json(firstSheet)
+
+    if (!rows.length) {
+      ElMessage.error('上传的文件没有有效数据！')
+      return
+    }
+
+    // 🌟 智能表头映射
+    rows = rows.map(row => {
+      const mapped = {}
+      for (const key in row) {
+        const lowerKey = key.trim().toLowerCase()
+        if (['name', '姓名'].includes(lowerKey)) mapped.name = row[key]
+        if (['phone', '电话', '手机号'].includes(lowerKey)) mapped.phone = row[key]
+        if (['notes', '备注'].includes(lowerKey)) mapped.notes = row[key]
+      }
+      return mapped
+    })
+
+    const validRows = rows.filter(r => r.name)
+    if (!validRows.length) {
+      ElMessage.error('找不到任何有效的租客数据，请确认表格格式！')
+      return
+    }
+
+    // 🌟 先把数据库里现有的 guests 拉下来做去重对比
+    const res = await axios.get('http://localhost:3000/guests')
+    const existingGuests = res.data
+
+    let newCount = 0
+    let updateCount = 0
+
+    // 🌟 遍历要导入的每一个租客
+    for (const guest of validRows) {
+      const existing = existingGuests.find(g => g.name.trim() === guest.name.trim())
+      if (existing) {
+        // 已存在，执行更新
+        await axios.put(`http://localhost:3000/guests/${existing.id}`, {
+          name: guest.name || '',
+          phone: guest.phone || '',
+          notes: guest.notes || ''
+        })
+        updateCount++
+      } else {
+        // 不存在，执行新增
+        await axios.post('http://localhost:3000/guests', {
+          name: guest.name || '',
+          phone: guest.phone || '',
+          notes: guest.notes || ''
+        })
+        newCount++
+      }
+    }
+
+    ElMessage.success(`导入完成：新增 ${newCount} 位，更新 ${updateCount} 位租客！`)
+    await loadData()
+  }
+
+  reader.readAsArrayBuffer(file)
+}
+
+
   </script>
   
