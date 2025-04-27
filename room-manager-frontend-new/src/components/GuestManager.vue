@@ -1,3 +1,5 @@
+
+
 <template>
 
 <v-btn color="secondary" @click="$refs.fileInput.click()">📥 批量导入租客</v-btn>
@@ -13,22 +15,93 @@
       <v-toolbar flat>
         <v-toolbar-title>租客管理</v-toolbar-title>
         <v-spacer></v-spacer>
-        <v-btn color="primary" @click="openNewGuestDialog">➕ 新增租客</v-btn>
-      </v-toolbar>
+        <v-text-field
+          v-model="search"
+          append-inner-icon="mdi-magnify"
+          label="搜索租客"
+          single-line
+          hide-details
+          dense
+          class="ml-4"
+          style="max-width: 250px"
+        />
 
+        <v-btn color="primary" @click="openNewGuestDialog">➕ 新增租客</v-btn>
+        <v-btn color="error" @click="batchDeleteGuests" v-if="selectedGuests.length">🗑️ 批量删除({{ selectedGuests.length }})</v-btn>
+
+      </v-toolbar>
+      <v-progress-linear
+        v-if="isImporting"
+        :model-value="importProgress"
+        color="primary"
+        height="6"
+        class="mt-2"
+        rounded
+        striped
+        indeterminate
+      ></v-progress-linear>
+
+
+      <v-progress-linear
+        v-if="isDeleting"
+        :value="deleteProgress"
+        color="red"
+        height="6"
+        class="mb-4"
+        striped
+      ></v-progress-linear>
 
       <v-data-table
         density="default"
         :headers="headers"
-        :items="guests"
+        :items="filteredGuests"
+        v-model="selectedGuests"
         item-value="id"
+        show-select
         class="elevation-1 mt-4"
       >
+
         <template #item.actions="{ item }">
+          <v-btn text @click="viewGuestBookings(item)" color="primary">
+    {{ item.name }}
+  </v-btn>
           <v-btn size="small" text @click="openEditGuestDialog(item)">编辑</v-btn>
-          <v-btn size="small" text color="error" @click="deleteGuest(item.id)">删除</v-btn>
+          <!-- <v-btn size="small" text color="error" @click="deleteGuest(item.id)">删除</v-btn> -->
         </template>
       </v-data-table>
+      <v-dialog v-model="bookingDialogVisible" max-width="700">
+        <v-card>
+          <v-card-title>{{ currentGuestName }} 的入住记录</v-card-title>
+          <v-card-text>
+            <v-simple-table dense>
+              <thead>
+                <tr>
+                  <th>房间ID</th>
+                  <th>入住时间</th>
+                  <th>搬出时间</th>
+                  <th>备注</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="booking in currentGuestBookings" :key="booking.id">
+                  <td>{{ booking.room_id }}</td>
+                  <td>{{ booking.check_in }}</td>
+                  <td>{{ booking.check_out }}</td>
+                  <td>{{ booking.notes }}</td>
+                </tr>
+                <tr v-if="!currentGuestBookings.length">
+                  <td colspan="4" class="text-center text-gray-400">暂无入住记录</td>
+                </tr>
+              </tbody>
+            </v-simple-table>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn text @click="bookingDialogVisible = false">关闭</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
 
   
       <!-- 新增/编辑租客 Dialog -->
@@ -52,12 +125,18 @@
   </template>
   
   <script setup>
-  import { ref, reactive, onMounted } from 'vue'
+  import { ref, reactive, computed, onMounted } from 'vue'
   import axios from 'axios'
   import { ElMessage, ElMessageBox } from 'element-plus'
   
   // 租客数据
   const guests = ref([])
+
+  const importProgress = ref(0)  // 导入进度
+const deleteProgress = ref(0)  // 删除进度
+const isImporting = ref(false)
+const isDeleting = ref(false)
+
   
   // 表头配置
   const headers = [
@@ -146,76 +225,178 @@
 
   import * as XLSX from 'xlsx'
 
-async function handleFileUpload(event) {
+  async function handleFileUpload(event) {
   const file = event.target.files[0]
   if (!file) return
 
   const reader = new FileReader()
 
   reader.onload = async (e) => {
-    const data = new Uint8Array(e.target.result)
-    const workbook = XLSX.read(data, { type: 'array' })
+    try {
+      const data = new Uint8Array(e.target.result)
+      const workbook = XLSX.read(data, { type: 'array' })
 
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-    let rows = XLSX.utils.sheet_to_json(firstSheet)
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+      let rows = XLSX.utils.sheet_to_json(firstSheet)
 
-    if (!rows.length) {
-      ElMessage.error('上传的文件没有有效数据！')
-      return
-    }
-
-    // 🌟 智能表头映射
-    rows = rows.map(row => {
-      const mapped = {}
-      for (const key in row) {
-        const lowerKey = key.trim().toLowerCase()
-        if (['name', '姓名'].includes(lowerKey)) mapped.name = row[key]
-        if (['phone', '电话', '手机号'].includes(lowerKey)) mapped.phone = row[key]
-        if (['notes', '备注'].includes(lowerKey)) mapped.notes = row[key]
+      if (!rows.length) {
+        ElMessage.error('上传的文件没有有效数据！')
+        return
       }
-      return mapped
-    })
 
-    const validRows = rows.filter(r => r.name)
-    if (!validRows.length) {
-      ElMessage.error('找不到任何有效的租客数据，请确认表格格式！')
-      return
-    }
+      // 🌟 智能表头映射 + 去空格
+      rows = rows.map(row => {
+        const mapped = {}
+        for (const key in row) {
+          const lowerKey = key.trim().toLowerCase()
+          if (['name', '姓名'].includes(lowerKey)) mapped.name = (row[key] || '').toString().trim()
+          if (['phone', '电话', '手机号'].includes(lowerKey)) mapped.phone = (row[key] || '').toString().trim()
+          if (['notes', '备注'].includes(lowerKey)) mapped.notes = (row[key] || '').toString().trim()
+        }
+        return mapped
+      })
 
-    // 🌟 先把数据库里现有的 guests 拉下来做去重对比
-    const res = await axios.get('http://localhost:3000/guests')
-    const existingGuests = res.data
-
-    let newCount = 0
-    let updateCount = 0
-
-    // 🌟 遍历要导入的每一个租客
-    for (const guest of validRows) {
-      const existing = existingGuests.find(g => g.name.trim() === guest.name.trim())
-      if (existing) {
-        // 已存在，执行更新
-        await axios.put(`http://localhost:3000/guests/${existing.id}`, {
-          name: guest.name || '',
-          phone: guest.phone || '',
-          notes: guest.notes || ''
-        })
-        updateCount++
-      } else {
-        // 不存在，执行新增
-        await axios.post('http://localhost:3000/guests', {
-          name: guest.name || '',
-          phone: guest.phone || '',
-          notes: guest.notes || ''
-        })
-        newCount++
+      // 🌟 过滤掉名字空白的行
+      const validRows = rows.filter(r => r.name)
+      if (!validRows.length) {
+        ElMessage.error('找不到任何有效租客，请检查表格格式！')
+        return
       }
-    }
 
-    ElMessage.success(`导入完成：新增 ${newCount} 位，更新 ${updateCount} 位租客！`)
-    await loadData()
+      isImporting.value = true
+      importProgress.value = 0
+
+      const res = await axios.get('http://localhost:3000/guests')
+      const existingGuests = res.data
+
+      let newCount = 0
+      let updateCount = 0
+
+      for (let i = 0; i < validRows.length; i++) {
+        const guest = validRows[i]
+
+        // 🌟 比较的时候忽略大小写和空格
+        const existing = existingGuests.find(g => g.name.replace(/\s+/g, '').toLowerCase() === guest.name.replace(/\s+/g, '').toLowerCase())
+
+        if (existing) {
+          await axios.put(`http://localhost:3000/guests/${existing.id}`, {
+            name: guest.name,
+            phone: guest.phone,
+            notes: guest.notes
+          })
+          updateCount++
+        } else {
+          const res = await axios.post('http://localhost:3000/guests', {
+            name: guest.name,
+            phone: guest.phone,
+            notes: guest.notes
+          })
+          // 🌟 新增成功后，动态加到本地数组，避免后面又新增一次
+          existingGuests.push({
+            id: res.data.id,
+            name: guest.name,
+            phone: guest.phone,
+            notes: guest.notes
+          })
+          newCount++
+        }
+
+        importProgress.value = Math.round(((i + 1) / validRows.length) * 100)
+      }
+
+      ElMessage.success(`导入完成：新增 ${newCount} 位，更新 ${updateCount} 位租客！`)
+      await loadGuests()
+
+    } catch (error) {
+      console.error('导入异常', error)
+      ElMessage.error('导入失败，请检查文件格式或服务器！')
+    } finally {
+      isImporting.value = false
+      importProgress.value = 0
+    }
   }
 
   reader.readAsArrayBuffer(file)
+}
+
+
+const selectedGuests = ref([]) // 勾选中的租客
+
+async function batchDeleteGuests() {
+  if (!selectedGuests.value.length) {
+    ElMessage.warning('请先选择要删除的租客！')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedGuests.value.length} 位租客吗？此操作不可恢复！`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    isDeleting.value = true
+    deleteProgress.value = 0
+
+    for (let i = 0; i < selectedGuests.value.length; i++) {
+      const guestId = selectedGuests.value[i].id
+      await axios.delete(`http://localhost:3000/guests/${guestId}`)
+      deleteProgress.value = Math.round(((i + 1) / selectedGuests.value.length) * 100)
+    }
+
+    ElMessage.success(`成功删除了 ${selectedGuests.value.length} 位租客！`)
+    selectedGuests.value = [] // 清空选择
+    await loadGuests()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error(error)
+      ElMessage.error('批量删除失败！')
+    }
+  } finally {
+    isDeleting.value = false
+    deleteProgress.value = 0
+  }
+}
+
+
+function getRowClass(item) {
+  const isSelected = selectedGuests.value.some(selected => selected.id === item.id)
+  return isSelected ? 'selected-row' : ''
+}
+const search = ref('') // 搜索关键词
+
+const filteredGuests = computed(() => {
+  if (!search.value.trim()) {
+    return guests.value
+  }
+  const keyword = search.value.trim().toLowerCase()
+  return guests.value.filter(g => 
+    (g.name && g.name.toLowerCase().includes(keyword)) ||
+    (g.phone && g.phone.toLowerCase().includes(keyword)) ||
+    (g.notes && g.notes.toLowerCase().includes(keyword))
+  )
+})
+
+
+const bookingDialogVisible = ref(false)
+const currentGuestBookings = ref([])
+const currentGuestName = ref('')
+
+async function viewGuestBookings(guest) {
+  currentGuestName.value = guest.name
+  try {
+    const res = await axios.get(`http://localhost:3000/bookings`)  // 这里根据你后端改成支持 guest_id 的话可以优化
+    const allBookings = res.data
+    currentGuestBookings.value = allBookings.filter(b => b.guest_id === guest.id)
+    bookingDialogVisible.value = true
+  } catch (error) {
+    console.error('加载租客 Booking 失败', error)
+    ElMessage.error('加载失败')
+  }
 }
 
 
