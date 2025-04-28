@@ -8,6 +8,8 @@ const PORT = 3000
 app.use(cors())
 app.use(express.json())
 
+
+
 const db = new sqlite3.Database('./rooms.db')
 
 // 初始化表
@@ -48,6 +50,11 @@ db.serialize(() => {
 
 
 })
+
+
+// const propertyRoutes = require('./routes/properties')
+// app.use('/properties', propertyRoutes)
+
 
 // 获取所有房间
 app.get('/rooms', (req, res) => {
@@ -178,6 +185,17 @@ app.get('/guests', (req, res) => {
     res.json(rows)
   })
 })
+
+// 获取单个租客
+app.get('/guests/:id', (req, res) => {
+  const { id } = req.params
+  db.get('SELECT * FROM guests WHERE id = ?', [id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message })
+    if (!row) return res.status(404).json({ error: 'Guest not found' })
+    res.json(row)
+  })
+})
+
 
 // 新增租客
 app.post('/guests', (req, res) => {
