@@ -84,4 +84,7 @@ const submitBooking = async () => {
     })
   }
 }
+
+
+
 </script>

@@ -25,6 +25,34 @@
           </v-list-item-content>
         </v-list-item>
 
+        <v-list-item to="/bookingManager" link>
+          <v-list-item-icon>
+            <v-icon>mdi-calendar-month</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>订房记录</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+
+        <v-list-item to="/properties" link>
+          <v-list-item-icon>
+            <v-icon>mdi-building</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>楼栋管理</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+
+        
+        <v-list-item to="/units" link>
+          <v-list-item-icon>
+            <v-icon>mdi-bed</v-icon>
+          </v-list-item-icon>
+          <v-list-item-content>
+            <v-list-item-title>单元管理</v-list-item-title>
+          </v-list-item-content>
+        </v-list-item>
+
         <v-list-item to="/rooms" link>
           <v-list-item-icon>
             <v-icon>mdi-bed</v-icon>
